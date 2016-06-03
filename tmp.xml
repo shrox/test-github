@@ -1,8 +1,2 @@
-[1;31m---------------------------------------------------------------------------[0m
-[1;31mTypeError[0m                                 Traceback (most recent call last)
-[1;32m/home/shrox/test-gsoc/lxml-test.py[0m in [0;36m<module>[1;34m()[0m
-[0;32m     16[0m [1;31m# print etree.tostring(tree.getroot())[0m[1;33m[0m[1;33m[0m[0m
-[0;32m     17[0m [1;33m[0m[0m
-[1;32m---> 18[1;33m [1;32mprint[0m [0metree[0m[1;33m.[0m[0mtostring[0m[1;33m([0m[0mtree[0m[1;33m.[0m[0mgetroot[0m[1;33m([0m[1;33m)[0m[1;33m)[0m[1;33m[[0m[1;34m'office:meta'[0m[1;33m][0m[1;33m[0m[0m
-[0m
-[1;31mTypeError[0m: string indices must be integers, not str
+urn:oasis:names:tc:opendocument:xmlns:office:1.0
+{'{urn:oasis:names:tc:opendocument:xmlns:office:1.0}automatic-styles': ('content', 'styles'), '{urn:oasis:names:tc:opendocument:xmlns:office:1.0}meta': ('meta',), '{urn:oasis:names:tc:opendocument:xmlns:office:1.0}font-face-decls': ('content', 'styles'), '{urn:oasis:names:tc:opendocument:xmlns:office:1.0}scripts': ('content',), '{urn:oasis:names:tc:opendocument:xmlns:office:1.0}styles': ('styles',), '{urn:oasis:names:tc:opendocument:xmlns:office:1.0}settings': ('settings',), '{urn:oasis:names:tc:opendocument:xmlns:office:1.0}body': ('content',), '{urn:oasis:names:tc:opendocument:xmlns:office:1.0}master-styles': ('styles',)}

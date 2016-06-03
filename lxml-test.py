@@ -31,7 +31,7 @@ root = etree.fromstring(doc)
 
 
 
-print "xmlns:table=" + '"'+root.nsmap['table']+'"'
+print "xmlns:office=" + '"'+root.nsmap['office']+'"'
 
 
 #To access regular attributes
