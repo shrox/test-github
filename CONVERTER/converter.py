@@ -1,10 +1,17 @@
-import lxml
 from lxml import etree
-from binary2image import binary2image
+import lxml
 
 from copy import deepcopy
 from StringIO import StringIO
 
+# #Extract namespaces and put them into xml files
+# XMLfile = open('textandpic.fodt', "r+")
+# doc = XMLfile.read()
+# tree = etree.fromstring(doc)
+
+# # For meta.xml
+# meta.xml = open('meta.xml', 'w')
+# page = etree.E
 
 filename = open('textandpic.fodt', "r+")
 
@@ -48,11 +55,3 @@ for child in fodt_root:
     if len(tag_dict[tag]) == 2:
     	file = open(tag_dict[tag][1]+".xml", "w+")
     	file.write(document_string)
-
-# Following code is to locate image tag in content.xml
-file = open("content.xml", 'r+')
-content_string = file.read()
-
-content_root = etree.fromstring(content_string)
-print content_root.xpath("//draw:image/office:binary-data/text()", namespaces={"draw":"urn:oasis:names:tc:opendocument:xmlns:drawing:1.0", 
-	                                                                       "office":"urn:oasis:names:tc:opendocument:xmlns:office:1.0"})
