@@ -27,27 +27,34 @@ tag_dict['styles'] = ['styles']
 tag_dict['automatic-styles'] = ['content', 'styles']
 tag_dict['master-styles'] = ['styles']
 tag_dict['body'] = ['content']
-
+    
 print tag_dict
 
+documents_processed = {}
 
 for child in fodt_root:
     tag = child.tag.split('}')[1]
-    print tag
+    print "TAG", tag
 
-    document = lxml.etree.Element(('{'+office_ns+'}'+'document-'+tag),
-                                  nsmap=fodt_root.nsmap)
+    for file_name in tag_dict[tag]:
+        print 'FILE_NAME', file_name
 
-    document.append(deepcopy(child))
+        document = documents_processed.get(file_name)
 
-    document_string = lxml.etree.tostring(
-        document, encoding='UTF-8', xml_declaration=True)
-    
-    file = open(tag_dict[tag][0]+".xml", "w+")
-    file.write(document_string)
+        if document is None:
+            
+            document = lxml.etree.Element(('{'+office_ns+'}' + 'document-' + file_name),
+                                          nsmap=fodt_root.nsmap)
+            print 'DOCUMENT', document
 
-    if len(tag_dict[tag]) == 2:
-        file = open(tag_dict[tag][1]+".xml", "w+")
+            documents_processed[file_name] = document
+
+        document.append(deepcopy(child))
+
+        document_string = lxml.etree.tostring(
+            document, encoding='UTF-8', xml_declaration=True)
+        
+        file = open(file_name+".xml", "w+")
         file.write(document_string)
 
 # Following code is to locate image tag in content.xml
@@ -62,33 +69,27 @@ print "TEST2"
 try:
     os.mkdir("Pictures")
     x = 0
-    while True:
-        binary_data = content_root.xpath("//draw:image/office:binary-data/text()", namespaces={"draw":"urn:oasis:names:tc:opendocument:xmlns:drawing:1.0", 
-                                                                           "office":"urn:oasis:names:tc:opendocument:xmlns:office:1.0"})[x]
+    while True:  #Using fodt_root.nsmap for content.xml (below) is not wrong but feels out of places
+        binary_data = content_root.xpath("//draw:image/office:binary-data/text()", namespaces=fodt_root.nsmap)[x]
         image_name = 'Pictures/image' + str(x) + '.jpg'
         binary2image(binary_data, image_name).convert2image()
 
+        #add xlink
+        node = content_root.xpath("//draw:image", namespaces=fodt_root.nsmap)[x]
+        node.attrib['{http://www.w3.org/1999/xlink}href'] = image_name
+        node.attrib['{http://www.w3.org/1999/xlink}simple'] = "simple"
+        node.attrib['{http://www.w3.org/1999/xlink}show'] = "embed"
+        node.attrib['{http://www.w3.org/1999/xlink}actuate'] = "onLoad"
+
         x = x + 1
-except:
+except IndexError:
     pass
 
 
 #delete binary data
-for elem in content_root.xpath("//draw:image/office:binary-data", namespaces={"draw":"urn:oasis:names:tc:opendocument:xmlns:drawing:1.0", 
-                                                                           "office":"urn:oasis:names:tc:opendocument:xmlns:office:1.0"}):
+for elem in content_root.xpath("//draw:image/office:binary-data", namespaces=fodt_root.nsmap):  
     elem.getparent().remove(elem)
 
 file = open("content.xml", 'w')
 file.write(etree.tostring(content_root))
 
-#add xlink
-print "TEST1"
-content_root.xpath("//draw:image", namespaces={"draw":"urn:oasis:names:tc:opendocument:xmlns:drawing:1.0"})[0].set('xlink:href', 'test2')
-print "TEST", etree.tostring(content_root)
-
-
-# xlink:href="Pictures/1000000000000132000001C1B172F5629754D00D.jpg"
-#  xlink:type="simple" xlink:show="embed" xlink:actuate="onLoad"
-
-# content_root.xpath("//draw:image", namespaces={"draw":"urn:oasis:names:tc:opendocument:xmlns:drawing:1.0"})[0].attrib['xlink:href'] = 'image'.attrib["xlink:type"] = "simple".attrib["xlink:show"] = "embed".attrib[
-#                                                     "xlink:actuate"] = "onLoad"
