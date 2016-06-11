@@ -1,6 +1,6 @@
 import base64
 
-class binary2image():
+class Binary2Image():
 	'''This class will convert the binary data
 						to an image'''
 

@@ -1,7 +1,7 @@
 import os
 import lxml
 from lxml import etree
-from binary2image import binary2image
+from binary2image import Binary2Image
 
 from copy import deepcopy
 from StringIO import StringIO
@@ -27,7 +27,7 @@ tag_dict['styles'] = ['styles']
 tag_dict['automatic-styles'] = ['content', 'styles']
 tag_dict['master-styles'] = ['styles']
 tag_dict['body'] = ['content']
-    
+
 print tag_dict
 
 documents_processed = {}
@@ -42,7 +42,7 @@ for child in fodt_root:
         document = documents_processed.get(file_name)
 
         if document is None:
-            
+
             document = lxml.etree.Element(('{'+office_ns+'}' + 'document-' + file_name),
                                           nsmap=fodt_root.nsmap)
             print 'DOCUMENT', document
@@ -53,7 +53,7 @@ for child in fodt_root:
 
         document_string = lxml.etree.tostring(
             document, encoding='UTF-8', xml_declaration=True)
-        
+
         file = open(file_name+".xml", "w+")
         file.write(document_string)
 
@@ -69,13 +69,17 @@ print "TEST2"
 try:
     os.mkdir("Pictures")
     x = 0
-    while True:  #Using fodt_root.nsmap for content.xml (below) is not wrong but feels out of places
-        binary_data = content_root.xpath("//draw:image/office:binary-data/text()", namespaces=fodt_root.nsmap)[x]
+    # Using fodt_root.nsmap for content.xml (below) is not wrong but feels out
+    # of places
+    while True:
+        binary_data = content_root.xpath(
+            "//draw:image/office:binary-data/text()", namespaces=fodt_root.nsmap)[x]
         image_name = 'Pictures/image' + str(x) + '.jpg'
-        binary2image(binary_data, image_name).convert2image()
+        Binary2Image(binary_data, image_name).convert2image()
 
-        #add xlink
-        node = content_root.xpath("//draw:image", namespaces=fodt_root.nsmap)[x]
+        # add xlink
+        node = content_root.xpath(
+            "//draw:image", namespaces=fodt_root.nsmap)[x]
         node.attrib['{http://www.w3.org/1999/xlink}href'] = image_name
         node.attrib['{http://www.w3.org/1999/xlink}simple'] = "simple"
         node.attrib['{http://www.w3.org/1999/xlink}show'] = "embed"
@@ -86,10 +90,10 @@ except IndexError:
     pass
 
 
-#delete binary data
-for elem in content_root.xpath("//draw:image/office:binary-data", namespaces=fodt_root.nsmap):  
+# delete binary data
+for elem in content_root.xpath("//draw:image/office:binary-data", namespaces=fodt_root.nsmap):
     elem.getparent().remove(elem)
 
 file = open("content.xml", 'w')
-file.write(etree.tostring(content_root))
-
+file.write(etree.tostring(
+    document, encoding='UTF-8', xml_declaration=True))
