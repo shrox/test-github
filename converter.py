@@ -14,6 +14,8 @@ fodt_tree = lxml.etree.parse(filename)
 
 fodt_root = fodt_tree.getroot()
 
+print 'FODT ROOT NSMAP', fodt_root.nsmap
+
 office_ns = fodt_root.nsmap['office']
 print "OFFICE_NS", office_ns
 
@@ -96,4 +98,4 @@ for elem in content_root.xpath("//draw:image/office:binary-data", namespaces=fod
 
 file = open("content.xml", 'w')
 file.write(etree.tostring(
-    document, encoding='UTF-8', xml_declaration=True))
+    content_root, encoding='UTF-8', xml_declaration=True))
