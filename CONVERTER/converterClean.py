@@ -156,11 +156,17 @@ class Manifest():
         manifest_entry.attrib["{" + manifest_namespace['manifest'] + "}" + "media-type"] = "application/vnd.oasis.opendocument.text"
 
         # Will vary according to content
-        
-        manifest_entry = etree.SubElement(document, 
-            "{" + manifest_namespace["manifest"] + "}" + "file-entry")
-        manifest_entry.attrib["{" + manifest_namespace['manifest'] + "}" + "full-path"] = "/"
-        manifest_entry.attrib["{" + manifest_namespace['manifest'] + "}" + "media-type"] = "application/vnd.oasis.opendocument.text"
+        manifest_file_path = []
+        for root, dirs, files in os.walk("."):
+            for name in files:
+                manifest_file_path.append(os.path.join(root, name))
+
+        for file_path in manifest_file_path:
+            manifest_entry = etree.SubElement(document, 
+                "{" + manifest_namespace["manifest"] + "}" + "file-entry")
+            manifest_entry.attrib["{" + manifest_namespace['manifest'] + "}" + "full-path"] = file_path
+            manifest_entry.attrib["{" + manifest_namespace['manifest'] + "}" + "media-type"] = "application/vnd.oasis.opendocument.text"
+
 
 
 
