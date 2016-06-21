@@ -1,24 +1,32 @@
 import os
 import base64
+import shutil
 
 from lxml import etree
 from copy import deepcopy
 from zipfile import ZipFile
 from StringIO import StringIO
 
+# Working with creating a memory zip 
+output_odt = StringIO()
+zip_file = ZipFile(output_odt, "w")
+
 # Global Variables
 fodt_root = []
 fodt_namespaces = {}
 
-def make_folders():
-    os.mkdir("Pictures")
-    os.mkdir("Thumbnails")
-    os.mkdir("META-INF")
+# def make_folders():  #function will probably go
+#     os.mkdir("Pictures")
+#     os.mkdir("Thumbnails")
+#     os.mkdir("META-INF")
 
 def mimetype():
-    mimetype = open("mimetype", "w")
-    mimetype.write("application/vnd.oasis.opendocument.text")
-    mimetype.close()
+    global zip_file
+    zip_file.writestr("mimetype", "application/vnd.oasis.opendocument.text")
+
+    # mimetype = open("mimetype", "w")
+    # mimetype.write("application/vnd.oasis.opendocument.text")
+    # mimetype.close()
 
 class Binary2Image():
     '''This class will convert the binary data
@@ -30,10 +38,12 @@ class Binary2Image():
         self.image_name = image_name
 
     def convert2image(self):
+        global zip_file
         image = base64.b64decode(self.binary_data)
+        zip_file.writestr(self.image_name, image)
 
-        with open(self.image_name, 'w+') as img:
-            img.write(image)
+        # with open(self.image_name, 'w+') as img:
+            # img.write(image)
 
 
 class OpenParseFodt():
@@ -66,6 +76,7 @@ class FileSplit():
         self.tag_dict['body'] = ['content']
 
     def split(self):
+        global zip_file
         documents_processed = {}
         for child in fodt_root:
             tag = child.tag.split('}')[1]
@@ -82,9 +93,12 @@ class FileSplit():
                 document.append(deepcopy(child))
                 document_string = etree.tostring(
                     document, encoding='UTF-8', xml_declaration=True)
-                xml_file = open(xml_filename + ".xml", "w+")
-                xml_file.write(document_string)
-                xml_file.close()
+
+                zip_file.writestr(xml_filename + ".xml", document_string)
+
+                # xml_file = open(xml_filename + ".xml", "w+")
+                # xml_file.write(document_string)
+                # xml_file.close()
 
 
 class HandleImages():
@@ -92,12 +106,15 @@ class HandleImages():
                 delete binary content and link to images"""
 
     def __init__(self):
-        content_file = open("content.xml", "r")
-        self.content_string = content_file.read()
+        global zip_file
+        self.content_string = zip_file.read("content.xml")
+        # content_file = open("content.xml", "r")
+        # self.content_string = content_file.read()
         self.content_root = etree.fromstring(self.content_string)
-        content_file.close()
+        # content_file.close()
 
     def handle_images(self):
+        global zip_file
         image_number = 0
 
         # possible bad code, improve
@@ -110,7 +127,6 @@ class HandleImages():
                 image_name = "Pictures/image" + str(image_number) + ".jpg"
 
                 Binary2Image(binary_data, image_name).convert2image()
-
 
                 node = self.content_root.xpath(
                         "//draw:image", namespaces=fodt_namespaces)[image_number]
@@ -130,10 +146,14 @@ class HandleImages():
                 elem.getparent().remove(elem)
 
         # Write to disk
-        content_file = open("content.xml", "w")
-        content_file.write(etree.tostring(
+        content_newstring = etree.tostring(
                   self.content_root, encoding='UTF-8', 
-                                                xml_declaration=True))
+                                                xml_declaration=True)
+
+        zip_file.writestr("content.xml", content_newstring)
+        # content_file = open("content.xml", "w")
+        # content_file.write(content_newstring)
+        # content_file.close()
 
 
 class Manifest():
@@ -153,6 +173,7 @@ class Manifest():
         self.extension_dict['py'] = 'REMOVE THIS'
 
     def make_manifest(self):
+        global zip_file
         manifest_namespace = {"manifest":"urn:oasis:names:tc:opendocument:xmlns:manifest:1.0"}
         document = etree.Element(
                         ("{" + manifest_namespace["manifest"] + "}" + "manifest"),
@@ -167,15 +188,16 @@ class Manifest():
         manifest_entry.attrib["{" + manifest_namespace['manifest'] + "}" + "media-type"] = "application/vnd.oasis.opendocument.text"
 
         # Will vary according to content
-        manifest_file_path = []
-        for root, dirs, files in os.walk("."):
-            for name in files:
-                manifest_file_path.append(os.path.join(root, name))
+        manifest_file_path = zip_file.namelist()
 
-        file_number = 0
-        while file_number < len(manifest_file_path):
-            manifest_file_path[file_number] = manifest_file_path[file_number].replace("./", "")
-            file_number += 1
+        # for root, dirs, files in os.walk("."):
+        #     for name in files:
+        #         manifest_file_path.append(os.path.join(root, name))
+
+        # file_number = 0
+        # while file_number < len(manifest_file_path):
+        #     manifest_file_path[file_number] = manifest_file_path[file_number].replace("./", "")
+        #     file_number += 1
 
         for file_path in manifest_file_path:
             manifest_entry = etree.SubElement(document, 
@@ -197,9 +219,12 @@ class Manifest():
                 document, encoding='UTF-8', xml_declaration=True, pretty_print=True)
 
 
-        xml_file = open("META-INF/manifest" + ".xml", "w+")
-        xml_file.write(document_string)
-        xml_file.close()
+        zip_file.writestr("META-INF/manifest" + ".xml", document_string)
+
+
+        # xml_file = open("META-INF/manifest" + ".xml", "w+")
+        # xml_file.write(document_string)
+        # xml_file.close()
 
 
 class FODT2ODT():
@@ -207,7 +232,7 @@ class FODT2ODT():
         self.filename = filename
 
     def convert(self):
-        make_folders()
+        # make_folders()
         mimetype()
         OpenParseFodt(self.filename).parse()
         FileSplit(self.filename).split()
@@ -216,13 +241,18 @@ class FODT2ODT():
 
 
 def main():
-    make_folders()
+    global zip_file
+    # make_folders()
     mimetype()
     fodt_filename = raw_input("Enter name of FODT file: ")
     OpenParseFodt(fodt_filename).parse()
     FileSplit(fodt_filename).split()
     HandleImages().handle_images()
     Manifest().make_manifest()
+    zip_file.close()
+    output_odt.seek(0)
+    with open('test.odt', 'w') as odt:
+        shutil.copyfileobj(output_odt, odt)
 
 
 
