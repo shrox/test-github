@@ -3,6 +3,7 @@ import base64
 
 from lxml import etree
 from copy import deepcopy
+from zipfile import ZipFile
 from StringIO import StringIO
 
 # Global Variables
@@ -99,6 +100,7 @@ class HandleImages():
     def handle_images(self):
         image_number = 0
 
+        # possible bad code, improve
         try:
             while True:
                 binary_data = self.content_root.xpath(
@@ -150,7 +152,6 @@ class Manifest():
         self.extension_dict['fodt'] = 'REMOVE THIS'
         self.extension_dict['py'] = 'REMOVE THIS'
 
-
     def make_manifest(self):
         manifest_namespace = {"manifest":"urn:oasis:names:tc:opendocument:xmlns:manifest:1.0"}
         document = etree.Element(
@@ -171,6 +172,11 @@ class Manifest():
             for name in files:
                 manifest_file_path.append(os.path.join(root, name))
 
+        file_number = 0
+        while file_number < len(manifest_file_path):
+            manifest_file_path[file_number] = manifest_file_path[file_number].replace("./", "")
+            file_number += 1
+
         for file_path in manifest_file_path:
             manifest_entry = etree.SubElement(document, 
                 "{" + manifest_namespace["manifest"] + "}" + "file-entry")
@@ -184,7 +190,6 @@ class Manifest():
             elif len(file_extension) == 1:
                 file_extension = ""
 
-            print "FILE_EXTENSION", file_extension
             manifest_entry.attrib["{" + manifest_namespace['manifest'] + "}" + "media-type"] = self.extension_dict.get(file_extension)
 
 
@@ -195,27 +200,6 @@ class Manifest():
         xml_file = open("META-INF/manifest" + ".xml", "w+")
         xml_file.write(document_string)
         xml_file.close()
-
-
-
-
-         # for xml_filename in self.tag_dict[tag]:
-         #        document = documents_processed.get(xml_filename)
-
-         #        if document is None:
-         #            document = etree.Element(
-         #                ('{'+fodt_namespaces['office']+'}' + 'document-' + xml_filename),
-         #                                 nsmap=fodt_namespaces)
-         #            documents_processed[xml_filename] = document
-
-         #        document.append(deepcopy(child))
-         #        document_string = etree.tostring(
-         #            document, encoding='UTF-8', xml_declaration=True)
-         #        xml_file = open(xml_filename + ".xml", "w+")
-         #        xml_file.write(document_string)
-         #        xml_file.close()
-
-
 
 
 class FODT2ODT():
