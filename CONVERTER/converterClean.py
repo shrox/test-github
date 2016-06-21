@@ -251,7 +251,7 @@ def main():
     Manifest().make_manifest()
     zip_file.close()
     output_odt.seek(0)
-    with open('test.odt', 'w') as odt:
+    with open(fodt_filename.split(".")[0] + ".odt", "w") as odt:
         shutil.copyfileobj(output_odt, odt)
 
 
