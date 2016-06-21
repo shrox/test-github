@@ -137,8 +137,18 @@ class HandleImages():
 class Manifest():
     ''' Class to create manifest.xml in META-INF folder '''
     
-    def __init__(self, content):
-        pass
+    def __init__(self):
+        # Might need to add more possible extensions
+        self.extension_dict = {}
+        self.extension_dict['xml'] = 'text/xml'
+        self.extension_dict['jpg'] = 'image/jpeg'
+        self.extension_dict['jpeg'] = 'image/jpeg'
+        self.extension_dict['png'] = 'image/png'
+        self.extension_dict['rdf'] = 'application/rdf+xml'
+        self.extension_dict[''] = 'application/binary'
+        # Following 2 only while testing
+        self.extension_dict['fodt'] = 'REMOVE THIS'
+        self.extension_dict['py'] = 'REMOVE THIS'
 
 
     def make_manifest(self):
@@ -156,20 +166,30 @@ class Manifest():
         manifest_entry.attrib["{" + manifest_namespace['manifest'] + "}" + "media-type"] = "application/vnd.oasis.opendocument.text"
 
         # Will vary according to content
-        
-        manifest_entry = etree.SubElement(document, 
-            "{" + manifest_namespace["manifest"] + "}" + "file-entry")
-        manifest_entry.attrib["{" + manifest_namespace['manifest'] + "}" + "full-path"] = "/"
-        manifest_entry.attrib["{" + manifest_namespace['manifest'] + "}" + "media-type"] = "application/vnd.oasis.opendocument.text"
+        manifest_file_path = []
+        for root, dirs, files in os.walk("."):
+            for name in files:
+                manifest_file_path.append(os.path.join(root, name))
 
+        for file_path in manifest_file_path:
+            manifest_entry = etree.SubElement(document, 
+                "{" + manifest_namespace["manifest"] + "}" + "file-entry")
+            manifest_entry.attrib["{" + manifest_namespace['manifest'] + "}" + "full-path"] = file_path
 
+            file_name = file_path.split('/')
+            file_name = file_name[len(file_path.split('/')) - 1]
+            file_extension = file_name.split('.')
+            if len(file_extension) == 2:
+                file_extension = file_extension[1]
+            elif len(file_extension) == 1:
+                file_extension = ""
 
+            print "FILE_EXTENSION", file_extension
+            manifest_entry.attrib["{" + manifest_namespace['manifest'] + "}" + "media-type"] = self.extension_dict.get(file_extension)
 
 
         document_string = etree.tostring(
-                document, encoding='UTF-8', xml_declaration=True)
-
-        
+                document, encoding='UTF-8', xml_declaration=True, pretty_print=True)
 
 
         xml_file = open("META-INF/manifest" + ".xml", "w+")
