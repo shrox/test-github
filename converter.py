@@ -15,18 +15,11 @@ zip_file = ZipFile(output_odt, "w")
 fodt_root = []
 fodt_namespaces = {}
 
-# def make_folders():  #function will probably go
-#     os.mkdir("Pictures")
-#     os.mkdir("Thumbnails")
-#     os.mkdir("META-INF")
 
 def mimetype():
     global zip_file
     zip_file.writestr("mimetype", "application/vnd.oasis.opendocument.text")
 
-    # mimetype = open("mimetype", "w")
-    # mimetype.write("application/vnd.oasis.opendocument.text")
-    # mimetype.close()
 
 class Binary2Image():
     '''This class will convert the binary data
@@ -41,9 +34,6 @@ class Binary2Image():
         global zip_file
         image = base64.b64decode(self.binary_data)
         zip_file.writestr(self.image_name, image)
-
-        # with open(self.image_name, 'w+') as img:
-            # img.write(image)
 
 
 class OpenParseFodt():
@@ -86,7 +76,7 @@ class FileSplit():
 
                 if document is None:
                     document = etree.Element(
-                        ('{' + fodt_namespaces['office'] + '}' + 'document-' + xml_filename),
+                        ('{%s}document-%s' % (fodt_namespaces['office'], xml_filename)),
                                 nsmap=fodt_namespaces)
                     documents_processed[xml_filename] = document
 
@@ -96,10 +86,6 @@ class FileSplit():
 
                 zip_file.writestr(xml_filename + ".xml", document_string)
 
-                # xml_file = open(xml_filename + ".xml", "w+")
-                # xml_file.write(document_string)
-                # xml_file.close()
-
 
 class HandleImages():
     """Class used to to handle images : convert to images, 
@@ -108,10 +94,8 @@ class HandleImages():
     def __init__(self):
         global zip_file
         self.content_string = zip_file.read("content.xml")
-        # content_file = open("content.xml", "r")
-        # self.content_string = content_file.read()
         self.content_root = etree.fromstring(self.content_string)
-        # content_file.close()
+
 
     def handle_images(self):
         global zip_file
@@ -130,10 +114,10 @@ class HandleImages():
 
                 node = self.content_root.xpath(
                         "//draw:image", namespaces=fodt_namespaces)[image_number]
-                node.attrib["{" + fodt_namespaces['xlink'] + "}" + "href"] = image_name
-                node.attrib["{" + fodt_namespaces['xlink'] + "}" + "simple"] = "simple"
-                node.attrib["{" + fodt_namespaces['xlink'] + "}" + "show"] = "embed"
-                node.attrib["{" + fodt_namespaces['xlink'] + "}" + "actuate"] = "onLoad"
+                node.attrib["{%s}href" % (fodt_namespaces['xlink'])] = image_name
+                node.attrib["{%s}simple" % (fodt_namespaces['xlink'])] = "simple"
+                node.attrib["{%s}show" % (fodt_namespaces['xlink'])] = "embed"
+                node.attrib["{%s}actuate" % (fodt_namespaces['xlink'])] = "onLoad"
 
                 image_number = image_number + 1
 
@@ -151,9 +135,6 @@ class HandleImages():
                                                 xml_declaration=True)
 
         zip_file.writestr("content.xml", content_newstring)
-        # content_file = open("content.xml", "w")
-        # content_file.write(content_newstring)
-        # content_file.close()
 
 
 class Manifest():
@@ -176,33 +157,25 @@ class Manifest():
         global zip_file
         manifest_namespace = {"manifest":"urn:oasis:names:tc:opendocument:xmlns:manifest:1.0"}
         document = etree.Element(
-                        ("{" + manifest_namespace["manifest"] + "}" + "manifest"),
+                            ("{%s}manifest" % (manifest_namespace["manifest"])),
                                         nsmap=manifest_namespace)
-        document.attrib["{" + manifest_namespace['manifest'] + "}" + "version"] = "1.2"
+        document.attrib["{%s}version" % (manifest_namespace["manifest"])] = "1.2"
+
 
         # Will come in every manifest.xml
-        manifest_entry = etree.SubElement(document, 
-            "{" + manifest_namespace["manifest"] + "}" + "file-entry")
-        manifest_entry.attrib["{" + manifest_namespace['manifest'] + "}" + "full-path"] = "/"
-        manifest_entry.attrib["{" + manifest_namespace['manifest'] + "}" + "version"] = "1.2"                               
-        manifest_entry.attrib["{" + manifest_namespace['manifest'] + "}" + "media-type"] = "application/vnd.oasis.opendocument.text"
+        manifest_entry = etree.SubElement(document,
+                "{%s}file-entry" % (manifest_namespace["manifest"]))
+        manifest_entry.attrib["{%s}full-path" % (manifest_namespace["manifest"])] = "/"
+        manifest_entry.attrib["{%s}version" % (manifest_namespace["manifest"])] = "1.2"                               
+        manifest_entry.attrib["{%s}media-type" % (manifest_namespace["manifest"])] = "application/vnd.oasis.opendocument.text"
 
         # Will vary according to content
         manifest_file_path = zip_file.namelist()
 
-        # for root, dirs, files in os.walk("."):
-        #     for name in files:
-        #         manifest_file_path.append(os.path.join(root, name))
-
-        # file_number = 0
-        # while file_number < len(manifest_file_path):
-        #     manifest_file_path[file_number] = manifest_file_path[file_number].replace("./", "")
-        #     file_number += 1
-
         for file_path in manifest_file_path:
-            manifest_entry = etree.SubElement(document, 
-                "{" + manifest_namespace["manifest"] + "}" + "file-entry")
-            manifest_entry.attrib["{" + manifest_namespace['manifest'] + "}" + "full-path"] = file_path
+            manifest_entry = etree.SubElement(document,
+                  "{%s}file-entry" % (manifest_namespace["manifest"]))
+            manifest_entry.attrib["{%s}full-path" % (manifest_namespace["manifest"])] = file_path
 
             file_name = file_path.split('/')
             file_name = file_name[len(file_path.split('/')) - 1]
@@ -212,19 +185,11 @@ class Manifest():
             elif len(file_extension) == 1:
                 file_extension = ""
 
-            manifest_entry.attrib["{" + manifest_namespace['manifest'] + "}" + "media-type"] = self.extension_dict.get(file_extension)
-
+            manifest_entry.attrib["{%s}media-type" % (manifest_namespace["manifest"])] = self.extension_dict.get(file_extension)
 
         document_string = etree.tostring(
                 document, encoding='UTF-8', xml_declaration=True, pretty_print=True)
-
-
         zip_file.writestr("META-INF/manifest" + ".xml", document_string)
-
-
-        # xml_file = open("META-INF/manifest" + ".xml", "w+")
-        # xml_file.write(document_string)
-        # xml_file.close()
 
 
 class FODT2ODT():
