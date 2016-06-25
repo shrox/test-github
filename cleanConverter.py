@@ -7,36 +7,23 @@ from zipfile import ZipFile
 from StringIO import StringIO
 
 
-# Working with creating a memory zip 
-output_odt = StringIO()
-zip_file = ZipFile(output_odt, "w")
-
-# Global Variables
-fodt_root = []
-fodt_namespaces = {}
-
-
-def mimetype():
-    global zip_file
+def mimetype(zip_file):
     zip_file.writestr("mimetype", "application/vnd.oasis.opendocument.text")
 
-def binary2image(binary_data, image_name):
-    global zip_file
+def binary2image(zip_file, binary_data, image_name):
     image = base64.b64decode(binary_data)
     zip_file.writestr(image_name, image)
 
 def parse_fodt(filename):
     filename = open(filename, "r")
-    global fodt_root
-    global fodt_namespaces
 
     fodt_tree = etree.parse(filename)
     fodt_root = fodt_tree.getroot()
     fodt_namespaces = fodt_root.nsmap
 
-def split_file():
-    global zip_file
+    return (fodt_root, fodt_namespaces)
 
+def split_file(zip_file, fodt_root, fodt_namespaces):
     tag_dict = {}
     tag_dict['meta'] = ['meta']
     tag_dict['settings'] = ['settings']
@@ -66,8 +53,7 @@ def split_file():
 
             zip_file.writestr("%s.xml" % (xml_filename), document_string)
 
-def handle_images():
-    global zip_file
+def handle_images(zip_file, fodt_root, fodt_namespaces):
     content_string = zip_file.read("content.xml")
     content_root = etree.fromstring(content_string)
 
@@ -82,7 +68,7 @@ def handle_images():
 
             image_name = "Pictures/image" + str(image_number) + ".jpg"
 
-            binary2image(binary_data, image_name)
+            binary2image(zip_file, binary_data, image_name)
 
             node = content_root.xpath(
                 "//draw:image", namespaces=fodt_namespaces)[image_number]
@@ -108,9 +94,7 @@ def handle_images():
 
     zip_file.writestr("content.xml", content_newstring)
 
-def make_manifest():
-    global zip_file
-
+def make_manifest(zip_file):
     # Might need to add more possible extensions for Configurations2 folder, etc.
     extension_dict = {}
     extension_dict['xml'] = 'text/xml'
@@ -157,18 +141,24 @@ def make_manifest():
                 document, encoding='UTF-8', xml_declaration=True, pretty_print=True)
     zip_file.writestr("META-INF/manifest" + ".xml", document_string)
 
+
 class FODT2ODT():
     def __init__(self, filename):
         self.filename = filename
 
     def convert(self):
-        global zip_file
+        output_odt = StringIO()
+        zip_file = ZipFile(output_odt, "w")
+
         mimetype()
+
         fodt_filename = self.filename
-        parse_fodt(fodt_filename)
-        split_file()
-        handle_images()
-        make_manifest()
+        fodt_root, fodt_namespaces = parse_fodt(fodt_filename)
+
+        split_file(zip_file, fodt_root, fodt_namespaces)
+        handle_images(zip_file, fodt_root, fodt_namespaces)
+        make_manifest(zip_file)
+
         zip_file.close()
         output_odt.seek(0)
         
@@ -176,13 +166,18 @@ class FODT2ODT():
             shutil.copyfileobj(output_odt, odt)
 
 def main():
-    global zip_file
-    mimetype()
+    output_odt = StringIO()
+    zip_file = ZipFile(output_odt, "w")
+
+    mimetype(zip_file)
+
     fodt_filename = raw_input("Enter name of FODT file: ")
-    parse_fodt(fodt_filename)
-    split_file()
-    handle_images()
-    make_manifest()
+    fodt_root, fodt_namespaces = parse_fodt(fodt_filename)
+
+    split_file(zip_file, fodt_root, fodt_namespaces)
+    handle_images(zip_file, fodt_root, fodt_namespaces)
+    make_manifest(zip_file)
+
     zip_file.close()
     output_odt.seek(0)
 
