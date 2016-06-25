@@ -140,7 +140,7 @@ def make_manifest():
     for file_path in manifest_file_path:
         manifest_entry = etree.SubElement(document,
             "{%s}file-entry" % (manifest_namespace["manifest"]))
-        
+
         manifest_entry.attrib["{%s}full-path" % (manifest_namespace["manifest"])] = file_path
 
         file_name = file_path.split('/')
@@ -156,6 +156,24 @@ def make_manifest():
     document_string = etree.tostring(
                 document, encoding='UTF-8', xml_declaration=True, pretty_print=True)
     zip_file.writestr("META-INF/manifest" + ".xml", document_string)
+
+class FODT2ODT():
+    def __init__(self, filename):
+        self.filename = filename
+
+    def convert(self):
+        global zip_file
+        mimetype()
+        fodt_filename = self.filename
+        parse_fodt(fodt_filename)
+        split_file()
+        handle_images()
+        make_manifest()
+        zip_file.close()
+        output_odt.seek(0)
+        
+        with open("%s.odt" % (fodt_filename.split(".")[0]), "w") as odt:
+            shutil.copyfileobj(output_odt, odt)
 
 def main():
     global zip_file
