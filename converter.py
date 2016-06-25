@@ -1,4 +1,3 @@
-import os
 import base64
 import shutil
 
@@ -6,6 +5,7 @@ from lxml import etree
 from copy import deepcopy
 from zipfile import ZipFile
 from StringIO import StringIO
+
 
 # Working with creating a memory zip 
 output_odt = StringIO()
@@ -54,7 +54,7 @@ class OpenParseFodt():
 class FileSplit():
     "A class that splits the FODT into the different XML files"
 
-    def __init__(self, filename):
+    def __init__(self):
         self.tag_dict = {}
         self.tag_dict['meta'] = ['meta']
         self.tag_dict['settings'] = ['settings']
@@ -176,7 +176,7 @@ class Manifest():
             manifest_entry = etree.SubElement(document,
                   "{%s}file-entry" % (manifest_namespace["manifest"]))
             manifest_entry.attrib["{%s}full-path" % (manifest_namespace["manifest"])] = file_path
-
+            
             file_name = file_path.split('/')
             file_name = file_name[len(file_path.split('/')) - 1]
             file_extension = file_name.split('.')
@@ -197,11 +197,10 @@ class FODT2ODT():
         self.filename = filename
 
     def convert(self):
-        # make_folders()
         mimetype()
         fodt_filename = raw_input("Enter name of FODT file: ")
         OpenParseFodt(fodt_filename).parse()
-        FileSplit(fodt_filename).split()
+        FileSplit().split()
         HandleImages().handle_images()
         Manifest().make_manifest()
         zip_file.close()
@@ -212,11 +211,10 @@ class FODT2ODT():
 
 def main():
     global zip_file
-    # make_folders()
     mimetype()
     fodt_filename = raw_input("Enter name of FODT file: ")
     OpenParseFodt(fodt_filename).parse()
-    FileSplit(fodt_filename).split()
+    FileSplit().split()
     HandleImages().handle_images()
     Manifest().make_manifest()
     zip_file.close()
