@@ -1,5 +1,6 @@
 import base64
 import shutil
+import sys
 
 from lxml import etree
 from copy import deepcopy
@@ -8,12 +9,8 @@ from StringIO import StringIO
 
 
 def mimetype(zip_file):
-    # Will need to change according to type of open document
+    #TODO Change according to type of open document
     zip_file.writestr("mimetype", "application/vnd.oasis.opendocument.text")
-
-def binary2image(zip_file, binary_data, image_name):
-    image = base64.b64decode(binary_data)
-    zip_file.writestr(image_name, image)
 
 def parse_fodt(filename):
     filename = open(filename, "r")
@@ -23,15 +20,17 @@ def parse_fodt(filename):
     return (fodt_root, fodt_namespaces)
 
 def split_file(zip_file, fodt_root, fodt_namespaces, manifest):
-    tag_dict = {}
-    tag_dict['meta'] = ['meta']
-    tag_dict['settings'] = ['settings']
-    tag_dict['scripts'] = ['content']
-    tag_dict['font-face-decls'] = ['content', 'styles']
-    tag_dict['styles'] = ['styles']
-    tag_dict['automatic-styles'] = ['content', 'styles']
-    tag_dict['master-styles'] = ['styles']
-    tag_dict['body'] = ['content']
+    tag_dict = {
+        'meta': ['meta'],
+        'settings': ['settings'],
+        'settings': ['settings'],
+        'scripts': ['content'],
+        'font-face-decls': ['content', 'styles'],
+        'styles': ['styles'],
+        'automatic-styles': ['content', 'styles'],
+        'master-styles': ['styles'],
+        'body': ['content']
+    }
 
     documents_processed = {}
     
@@ -71,7 +70,9 @@ def handle_images(zip_file, fodt_root, fodt_namespaces, manifest):
 
             image_name = "Pictures/image%s.jpg" % (str(image_number))
 
-            binary2image(zip_file, binary_data, image_name)
+            # Decode image using base64 module
+            image = base64.b64decode(binary_data)
+            zip_file.writestr(image_name, image)
 
             node = content_root.xpath(
                 "//draw:image", namespaces=fodt_namespaces)[image_number]
@@ -109,14 +110,6 @@ class Manifest():
     ''' Handles manifest'''
 
     def __init__(self):
-        self.extension_dict = {}
-        self.extension_dict[''] = 'application/binary'
-        self.extension_dict['xml'] = 'text/xml'
-        self.extension_dict['jpg'] = 'image/jpeg'
-        self.extension_dict['jpeg'] = 'image/jpeg'
-        self.extension_dict['png'] = 'image/png'
-        self.extension_dict['rdf'] = 'application/rdf+xml'
-
         self.manifest_namespace = {"manifest":"urn:oasis:names:tc:opendocument:xmlns:manifest:1.0"}
 
         self.document = etree.Element(
@@ -131,8 +124,16 @@ class Manifest():
         manifest_entry.attrib["{%s}version" % (self.manifest_namespace["manifest"])] = "1.2"                               
         manifest_entry.attrib["{%s}media-type" % (self.manifest_namespace["manifest"])] = "application/vnd.oasis.opendocument.text"
 
-
     def add_manifest_entry(self, file_path):
+        extension_dict = {
+            '': 'application/binary',
+            'xml': 'text/xml',
+            'jpg': 'image/jpeg',
+            'jpeg': 'image/jpeg',
+            'png': 'image/png',
+            'rdf': 'application/rdf+xml',
+        }
+
         manifest_entry = etree.SubElement(self.document,
             "{%s}file-entry" % (self.manifest_namespace["manifest"]))
 
@@ -147,59 +148,37 @@ class Manifest():
         elif len(file_extension) == 1:
             file_extension = ""
 
-        manifest_entry.attrib["{%s}media-type" % (self.manifest_namespace["manifest"])] = self.extension_dict.get(file_extension)
+        manifest_entry.attrib["{%s}media-type" % (self.manifest_namespace["manifest"])] = extension_dict.get(file_extension)
 
-    def write_to_zip(self, zip_file, manifest): # Still need to remove duplicates
+    def write_to_zip(self, zip_file, manifest): #TODO Remove duplicates
         manifest_string = etree.tostring(
                 manifest.document, encoding='UTF-8', xml_declaration=True, pretty_print=True)
         zip_file.writestr("META-INF/manifest.xml", manifest_string)
 
 
-
 class FODT2ODT():
     def __init__(self, filename):
         self.filename = filename
+        self.fodt_root, self.fodt_namespaces = parse_fodt(self.filename)
+        self.output_odt = StringIO()
+        self.zip_file = ZipFile(self.output_odt, "w")
 
     def convert(self):
-        output_odt = StringIO()
-        zip_file = ZipFile(output_odt, "w")
-
-        mimetype()
+        mimetype(self.zip_file)
 
         fodt_filename = self.filename
-        fodt_root, fodt_namespaces = parse_fodt(fodt_filename)
 
-        split_file(zip_file, fodt_root, fodt_namespaces)
-        handle_images(zip_file, fodt_root, fodt_namespaces)
+        manifest = Manifest()
+        split_file(self.zip_file, self.fodt_root, self.fodt_namespaces, manifest)
+        handle_images(self.zip_file, self.fodt_root, self.fodt_namespaces, manifest)
+        manifest.write_to_zip(self.zip_file, manifest)
 
-        zip_file.close()
-        output_odt.seek(0)
+        self.zip_file.close()
+        self.output_odt.seek(0)
         
         with open("%s.odt" % (fodt_filename.split(".")[0]), "w") as odt:
-            shutil.copyfileobj(output_odt, odt)
+            shutil.copyfileobj(self.output_odt, odt)
 
-def main():
-    output_odt = StringIO()
-    zip_file = ZipFile(output_odt, "w")
-
-    mimetype(zip_file)
-
-    fodt_filename = raw_input("Enter name of FODT file: ")
-    fodt_root, fodt_namespaces = parse_fodt(fodt_filename)
-
-    manifest = Manifest()
-    split_file(zip_file, fodt_root, fodt_namespaces, manifest)
-    handle_images(zip_file, fodt_root, fodt_namespaces, manifest)
-    manifest.write_to_zip(zip_file, manifest)
-
-    zip_file.close()
-    output_odt.seek(0)
-
-    with open("%s.odt" % (fodt_filename.split(".")[0]), "w") as odt:
-            shutil.copyfileobj(output_odt, odt)
-
-if __name__ == "__main__":main()
-
-
-
-
+if __name__ == "__main__":
+    fodt2odt = FODT2ODT(sys.argv[1])
+    fodt2odt.convert()
