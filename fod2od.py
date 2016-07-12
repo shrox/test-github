@@ -163,32 +163,28 @@ class Manifest():
         zip_file.writestr("META-INF/manifest.xml", manifest_string)
 
 
-class FODT2ODT():
+def convert(filename):
+    fodt_root, fodt_namespaces = parse_fodt(filename)
+    output_odt = StringIO()
+    zip_file = ZipFile(output_odt, "w")
 
-    def __init__(self, filename):
-        self.filename = filename
-        self.fodt_root, self.fodt_namespaces = parse_fodt(self.filename)
-        self.output_odt = StringIO()
-        self.zip_file = ZipFile(self.output_odt, "w")
+    mimetype(zip_file)
 
-    def convert(self):
-        mimetype(self.zip_file)
+    odt_filename = filename # Can add option to have something else as odt_filename
 
-        fodt_filename = self.filename
+    manifest = Manifest()
+    split_file(
+        zip_file, fodt_root, fodt_namespaces, manifest)
+    handle_images(
+        zip_file, fodt_root, fodt_namespaces, manifest)
+    manifest.write_to_zip(zip_file, manifest)
 
-        manifest = Manifest()
-        split_file(
-            self.zip_file, self.fodt_root, self.fodt_namespaces, manifest)
-        handle_images(
-            self.zip_file, self.fodt_root, self.fodt_namespaces, manifest)
-        manifest.write_to_zip(self.zip_file, manifest)
+    zip_file.close()
+    output_odt.seek(0)
 
-        self.zip_file.close()
-        self.output_odt.seek(0)
+    with open("%s.odt" % (odt_filename.split(".")[0]), "w") as odt:
+        shutil.copyfileobj(output_odt, odt)
 
-        with open("%s.odt" % (fodt_filename.split(".")[0]), "w") as odt:
-            shutil.copyfileobj(self.output_odt, odt)
 
 if __name__ == "__main__":
-    fodt2odt = FODT2ODT(sys.argv[1])
-    fodt2odt.convert()
+    convert(sys.argv[1])
