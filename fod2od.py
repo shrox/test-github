@@ -9,8 +9,9 @@ from StringIO import StringIO
 
 
 def mimetype(zip_file):
-    #TODO Change according to type of open document
+    # TODO Change according to type of open document
     zip_file.writestr("mimetype", "application/vnd.oasis.opendocument.text")
+
 
 def parse_fodt(filename):
     filename = open(filename, "r")
@@ -18,6 +19,7 @@ def parse_fodt(filename):
     fodt_root = fodt_tree.getroot()
     fodt_namespaces = fodt_root.nsmap
     return (fodt_root, fodt_namespaces)
+
 
 def split_file(zip_file, fodt_root, fodt_namespaces, manifest):
     tag_dict = {
@@ -33,7 +35,7 @@ def split_file(zip_file, fodt_root, fodt_namespaces, manifest):
     }
 
     documents_processed = {}
-    
+
     for child in fodt_root:
         tag = child.tag.split('}')[1]
 
@@ -42,18 +44,20 @@ def split_file(zip_file, fodt_root, fodt_namespaces, manifest):
 
             if document is None:
                 document = etree.Element(
-                        ('{%s}document-%s' % (fodt_namespaces['office'], xml_filename)),
-                                nsmap=fodt_namespaces)
+                    ('{%s}document-%s' %
+                     (fodt_namespaces['office'], xml_filename)),
+                    nsmap=fodt_namespaces)
                 documents_processed[xml_filename] = document
 
             document.append(deepcopy(child))
             document_string = etree.tostring(
-                    document, encoding='UTF-8', xml_declaration=True, pretty_print=True)
+                document, encoding='UTF-8', xml_declaration=True, pretty_print=True)
 
             zip_file.writestr("%s.xml" % (xml_filename), document_string)
 
             # Write to manifest object
             manifest.add_manifest_entry("%s.xml" % (xml_filename))
+
 
 def handle_images(zip_file, fodt_root, fodt_namespaces, manifest):
     content_string = zip_file.read("content.xml")
@@ -85,44 +89,45 @@ def handle_images(zip_file, fodt_root, fodt_namespaces, manifest):
 
             # Write to manifest object
             manifest.add_manifest_entry(image_name)
-            
 
     except IndexError:
         pass
 
     # Delete  binary data
     for elem in content_root.xpath(
-        "//draw:image/office:binary-data", namespaces=fodt_root.nsmap):
-            elem.getparent().remove(elem)
+            "//draw:image/office:binary-data", namespaces=fodt_root.nsmap):
+        elem.getparent().remove(elem)
 
     # Write to zip
     content_newstring = etree.tostring(
-                   content_root, encoding='UTF-8', 
-                    xml_declaration=True)
+        content_root, encoding='UTF-8',
+        xml_declaration=True)
     zip_file.writestr("content.xml", content_newstring)
-
-    # Write manifest.xml to zip
-    document_string = etree.tostring(
-                manifest.document, encoding='UTF-8', xml_declaration=True, pretty_print=True)    
 
 
 class Manifest():
+
     ''' Handles manifest'''
 
     def __init__(self):
-        self.manifest_namespace = {"manifest":"urn:oasis:names:tc:opendocument:xmlns:manifest:1.0"}
+        self.manifest_namespace = {
+            "manifest": "urn:oasis:names:tc:opendocument:xmlns:manifest:1.0"}
 
         self.document = etree.Element(
-                    ("{%s}manifest" % (self.manifest_namespace["manifest"])),
-                                            nsmap=self.manifest_namespace)
-        self.document.attrib["{%s}version" % (self.manifest_namespace["manifest"])] = "1.2"
+            ("{%s}manifest" % (self.manifest_namespace["manifest"])),
+            nsmap=self.manifest_namespace)
+        self.document.attrib["{%s}version" %
+                             (self.manifest_namespace["manifest"])] = "1.2"
 
         # Will be in every manifest.xml
         manifest_entry = etree.SubElement(self.document,
-            "{%s}file-entry" % (self.manifest_namespace["manifest"]))
-        manifest_entry.attrib["{%s}full-path" % (self.manifest_namespace["manifest"])] = "/"
-        manifest_entry.attrib["{%s}version" % (self.manifest_namespace["manifest"])] = "1.2"                               
-        manifest_entry.attrib["{%s}media-type" % (self.manifest_namespace["manifest"])] = "application/vnd.oasis.opendocument.text"
+                                          "{%s}file-entry" % (self.manifest_namespace["manifest"]))
+        manifest_entry.attrib["{%s}full-path" %
+                              (self.manifest_namespace["manifest"])] = "/"
+        manifest_entry.attrib["{%s}version" %
+                              (self.manifest_namespace["manifest"])] = "1.2"
+        manifest_entry.attrib[
+            "{%s}media-type" % (self.manifest_namespace["manifest"])] = "application/vnd.oasis.opendocument.text"
 
     def add_manifest_entry(self, file_path):
         extension_dict = {
@@ -135,9 +140,10 @@ class Manifest():
         }
 
         manifest_entry = etree.SubElement(self.document,
-            "{%s}file-entry" % (self.manifest_namespace["manifest"]))
+                                          "{%s}file-entry" % (self.manifest_namespace["manifest"]))
 
-        manifest_entry.attrib["{%s}full-path" % (self.manifest_namespace["manifest"])] = file_path
+        manifest_entry.attrib["{%s}full-path" %
+                              (self.manifest_namespace["manifest"])] = file_path
 
         # To find file extension
         file_name = file_path.split('/')
@@ -148,15 +154,17 @@ class Manifest():
         elif len(file_extension) == 1:
             file_extension = ""
 
-        manifest_entry.attrib["{%s}media-type" % (self.manifest_namespace["manifest"])] = extension_dict.get(file_extension)
+        manifest_entry.attrib[
+            "{%s}media-type" % (self.manifest_namespace["manifest"])] = extension_dict.get(file_extension)
 
-    def write_to_zip(self, zip_file, manifest): #TODO Remove duplicates
+    def write_to_zip(self, zip_file, manifest):  # TODO Remove duplicates
         manifest_string = etree.tostring(
-                manifest.document, encoding='UTF-8', xml_declaration=True, pretty_print=True)
+            manifest.document, encoding='UTF-8', xml_declaration=True, pretty_print=True)
         zip_file.writestr("META-INF/manifest.xml", manifest_string)
 
 
 class FODT2ODT():
+
     def __init__(self, filename):
         self.filename = filename
         self.fodt_root, self.fodt_namespaces = parse_fodt(self.filename)
@@ -169,13 +177,15 @@ class FODT2ODT():
         fodt_filename = self.filename
 
         manifest = Manifest()
-        split_file(self.zip_file, self.fodt_root, self.fodt_namespaces, manifest)
-        handle_images(self.zip_file, self.fodt_root, self.fodt_namespaces, manifest)
+        split_file(
+            self.zip_file, self.fodt_root, self.fodt_namespaces, manifest)
+        handle_images(
+            self.zip_file, self.fodt_root, self.fodt_namespaces, manifest)
         manifest.write_to_zip(self.zip_file, manifest)
 
         self.zip_file.close()
         self.output_odt.seek(0)
-        
+
         with open("%s.odt" % (fodt_filename.split(".")[0]), "w") as odt:
             shutil.copyfileobj(self.output_odt, odt)
 
