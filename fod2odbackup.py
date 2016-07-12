@@ -21,7 +21,7 @@ def parse_fodt(filename):
     return (fodt_root, fodt_namespaces)
 
 
-def split_file(fodt_root, fodt_namespaces, manifest):
+def split_file(zip_file, fodt_root, fodt_namespaces, manifest):
     tag_dict = {
         'meta': ['meta'],
         'settings': ['settings'],
@@ -34,9 +34,7 @@ def split_file(fodt_root, fodt_namespaces, manifest):
         'body': ['content']
     }
 
-
     documents_processed = {}
-    split_files = {}
 
     for child in fodt_root:
         tag = child.tag.split('}')[1]
@@ -55,69 +53,56 @@ def split_file(fodt_root, fodt_namespaces, manifest):
             document_string = etree.tostring(
                 document, encoding='UTF-8', xml_declaration=True, pretty_print=True)
 
-
-            split_files[xml_filename + '.xml'] = document_string
-            # zip_file.writestr("%s.xml" % (xml_filename), document_string)
+            zip_file.writestr("%s.xml" % (xml_filename), document_string)
 
             # Write to manifest object
-            # manifest.add_manifest_entry("%s.xml" % (xml_filename))
             manifest.add_manifest_entry("%s.xml" % (xml_filename))
-
-    return split_files
-
-
-def write_split_to_zip(zip_file, files_dictionary):
-    print files_dictionary
-
-    for filename in files_dictionary:
-        zip_file.writestr(filename, files_dictionary[filename])
 
 
 def handle_images(zip_file, fodt_root, fodt_namespaces, manifest):
-    # pass
     content_string = zip_file.read("content.xml")
-    # content_root = etree.fromstring(content_string)
+    content_root = etree.fromstring(content_string)
 
-    # image_number = 0
+    image_number = 0
 
-    # # possible bad code, improve
-    # try:
-    #     while True:
-    #         binary_data = content_root.xpath(
-    #             "//draw:image/office:binary-data/text()",
-    #             namespaces=fodt_namespaces)[image_number]
+    # possible bad code, improve
+    try:
+        while True:
+            binary_data = content_root.xpath(
+                "//draw:image/office:binary-data/text()",
+                namespaces=fodt_namespaces)[image_number]
 
-    #         image_name = "Pictures/image%s.jpg" % (str(image_number))
+            image_name = "Pictures/image%s.jpg" % (str(image_number))
 
-    #         # Decode image using base64 module
-    #         image = base64.b64decode(binary_data)
-    #         zip_file.writestr(image_name, image)
+            # Decode image using base64 module
+            image = base64.b64decode(binary_data)
+            zip_file.writestr(image_name, image)
 
-    #         node = content_root.xpath(
-    #             "//draw:image", namespaces=fodt_namespaces)[image_number]
-    #         node.attrib["{%s}href" % (fodt_namespaces['xlink'])] = image_name
-    #         node.attrib["{%s}simple" % (fodt_namespaces['xlink'])] = "simple"
-    #         node.attrib["{%s}show" % (fodt_namespaces['xlink'])] = "embed"
-    #         node.attrib["{%s}actuate" % (fodt_namespaces['xlink'])] = "onLoad"
+            node = content_root.xpath(
+                "//draw:image", namespaces=fodt_namespaces)[image_number]
+            node.attrib["{%s}href" % (fodt_namespaces['xlink'])] = image_name
+            node.attrib["{%s}simple" % (fodt_namespaces['xlink'])] = "simple"
+            node.attrib["{%s}show" % (fodt_namespaces['xlink'])] = "embed"
+            node.attrib["{%s}actuate" % (fodt_namespaces['xlink'])] = "onLoad"
 
-    #         image_number = image_number + 1
+            image_number = image_number + 1
 
-    #         # Write to manifest object
-    #         manifest.add_manifest_entry(image_name)
+            # Write to manifest object
+            manifest.add_manifest_entry(image_name)
 
-    # except IndexError:
-    #     pass
+    except IndexError:
+        pass
 
-    # # Delete  binary data
-    # for elem in content_root.xpath(
-    #         "//draw:image/office:binary-data", namespaces=fodt_root.nsmap):
-    #     elem.getparent().remove(elem)
+    # Delete  binary data
+    for elem in content_root.xpath(
+            "//draw:image/office:binary-data", namespaces=fodt_root.nsmap):
+        elem.getparent().remove(elem)
 
-    # # Write to zip
-    # content_newstring = etree.tostring(
-    #     content_root, encoding='UTF-8',
-    #     xml_declaration=True)
-    # zip_file.writestr("content.xml", content_newstring)
+    # Write to zip
+    content_newstring = etree.tostring(
+        content_root, encoding='UTF-8',
+        xml_declaration=True)
+    zip_file.writestr("content.xml", content_newstring)
 
 
 class Manifest():
@@ -188,7 +173,8 @@ def convert(filename):
     odt_filename = filename # Can add option to have something else as odt_filename
 
     manifest = Manifest()
-    write_split_to_zip(zip_file, split_file(fodt_root, fodt_namespaces, manifest))
+    split_file(
+        zip_file, fodt_root, fodt_namespaces, manifest)
     handle_images(
         zip_file, fodt_root, fodt_namespaces, manifest)
     manifest.write_to_zip(zip_file, manifest)
