@@ -23,10 +23,47 @@ def parse_fodt(filename):
     return (fodt_root, fodt_namespaces)
 
 
+def decode_images_to_zip(zip_file, document, fodt_namespaces, manifest):
+
+    document_root = document
+
+    image_number = 0
+    all_binary_data = document_root.xpath(
+                "//draw:image/office:binary-data/text()",
+                namespaces=fodt_namespaces)
+
+    for binary_data in all_binary_data:
+        image_name = "Pictures/image%s.jpg" % (str(image_number))
+
+        # Decode image using base64 module
+        image = base64.b64decode(binary_data)
+        zip_file.writestr(image_name, image)
+
+        node = document_root.xpath(
+                "//draw:image", namespaces=fodt_namespaces)[image_number]
+        node.attrib["{%s}href" % (fodt_namespaces['xlink'])] = image_name
+        node.attrib["{%s}simple" % (fodt_namespaces['xlink'])] = "simple"
+        node.attrib["{%s}show" % (fodt_namespaces['xlink'])] = "embed"
+        node.attrib["{%s}actuate" % (fodt_namespaces['xlink'])] = "onLoad"
+
+        image_number += 1
+
+        # Delete binary data
+        elem = binary_data.getparent()
+        elem.getparent().remove(elem)
+
+        # Write to manifest object
+        manifest.add_manifest_entry(image_name)
+
+    document_string = etree.tostring(
+                document, encoding='UTF-8', xml_declaration=True)
+
+    return document_string 
+
+
 def split_file(zip_file, fodt_root, fodt_namespaces, manifest):
     tag2file = {
         'meta': ['meta'],
-        'settings': ['settings'],
         'settings': ['settings'],
         'scripts': ['content'],
         'font-face-decls': ['content', 'styles'],
@@ -45,6 +82,7 @@ def split_file(zip_file, fodt_root, fodt_namespaces, manifest):
             document = documents_processed.get(xml_filename)
 
             if document is None:
+                # Create document if none exists
                 document = etree.Element(
                     ('{%s}document-%s' %
                      (fodt_namespaces['office'], xml_filename)),
@@ -52,52 +90,15 @@ def split_file(zip_file, fodt_root, fodt_namespaces, manifest):
                 documents_processed[xml_filename] = document
 
             document.append(deepcopy(child))
-            document_string = etree.tostring(
-                document, encoding='UTF-8', xml_declaration=True)
+            # document_string = etree.tostring(
+            #     document, encoding='UTF-8', xml_declaration=True)
+
+            document_string = decode_images_to_zip(zip_file, document, fodt_namespaces, manifest)
 
             zip_file.writestr("%s.xml" % (xml_filename), document_string)
 
             # Write to manifest object
             manifest.add_manifest_entry("%s.xml" % (xml_filename))
-
-
-def handle_images(zip_file, fodt_root, fodt_namespaces, manifest):
-    content_string = zip_file.read("content.xml")
-    content_root = etree.fromstring(content_string)
-
-    image_number = 0
-    all_binary_data = content_root.xpath(
-                "//draw:image/office:binary-data/text()",
-                namespaces=fodt_namespaces)
-
-    for binary_data in all_binary_data:
-        image_name = "Pictures/image%s.jpg" % (str(image_number))
-
-        # Decode image using base64 module
-        image = base64.b64decode(binary_data)
-        zip_file.writestr(image_name, image)
-
-        node = content_root.xpath(
-                "//draw:image", namespaces=fodt_namespaces)[image_number]
-        node.attrib["{%s}href" % (fodt_namespaces['xlink'])] = image_name
-        node.attrib["{%s}simple" % (fodt_namespaces['xlink'])] = "simple"
-        node.attrib["{%s}show" % (fodt_namespaces['xlink'])] = "embed"
-        node.attrib["{%s}actuate" % (fodt_namespaces['xlink'])] = "onLoad"
-
-        image_number += 1
-
-        # Delete binary data
-        elem = binary_data.getparent()
-        elem.getparent().remove(elem)
-
-        # Write to manifest object
-        manifest.add_manifest_entry(image_name)
-
-    # Write to zip
-    content_newstring = etree.tostring(
-        content_root, encoding='UTF-8',
-        xml_declaration=True)
-    zip_file.writestr("content.xml", content_newstring)
 
 
 class Manifest(object):
@@ -131,7 +132,6 @@ class Manifest(object):
         manifest_entry.attrib["{%s}full-path" %
                               (self.manifest_namespace["manifest"])] = file_path
 
-        # To find file extension
         file_name = os.path.split(file_path)[1]
 
         manifest_entry.attrib[
@@ -154,8 +154,6 @@ def convert(filename):
 
     manifest = Manifest()
     split_file(
-        zip_file, fodt_root, fodt_namespaces, manifest)
-    handle_images(
         zip_file, fodt_root, fodt_namespaces, manifest)
     manifest.write_to_zip(zip_file, manifest)
 
