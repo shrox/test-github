@@ -60,14 +60,13 @@ def split_file(fodt_root, fodt_namespaces, manifest):
             # zip_file.writestr("%s.xml" % (xml_filename), document_string)
 
             # Write to manifest object
-            # manifest.add_manifest_entry("%s.xml" % (xml_filename))
             manifest.add_manifest_entry("%s.xml" % (xml_filename))
 
     return split_files
 
 
 def write_split_to_zip(zip_file, files_dictionary):
-    print files_dictionary
+    # print files_dictionary
 
     for filename in files_dictionary:
         zip_file.writestr(filename, files_dictionary[filename])
@@ -76,6 +75,8 @@ def write_split_to_zip(zip_file, files_dictionary):
 def handle_images(zip_file, fodt_root, fodt_namespaces, manifest):
     # pass
     content_string = zip_file.read("content.xml")
+    content_string_test = zip_file.read("content.xml")
+    print content_string
     # content_root = etree.fromstring(content_string)
 
     # image_number = 0
