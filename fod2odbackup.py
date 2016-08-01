@@ -1,10 +1,12 @@
-import base64
-import shutil
-import sys
-import mimetypes
 import os
+import sys
+import shutil
+import base64
+import mimetypes
 
 from lxml import etree
+from magic import Magic
+from magic import MAGIC_MIME_TYPE
 from copy import deepcopy
 from zipfile import ZipFile
 from StringIO import StringIO
@@ -33,10 +35,17 @@ def decode_images_to_zip(zip_file, document, fodt_namespaces, manifest):
     all_binary_data = document_root.xpath(
         "//draw:image/office:binary-data/text()",
         namespaces=fodt_namespaces)
+
     for binary_data in all_binary_data:
-        image_name = "Pictures/image%s.jpg" % (str(image_number))
         # Decode image using base64 module
         image = base64.b64decode(binary_data)
+        
+        # Identify mime to identify extension 
+        with Magic(flags=MAGIC_MIME_TYPE) as m:
+            mime = m.id_buffer(image)
+
+        image_name = "Pictures/image%s%s" % (str(image_number), mimetypes.guess_extension(mime))
+
         zip_file.writestr(image_name, image)
 
         node = document_root.xpath(
@@ -100,16 +109,17 @@ def split_file_to_zip(zip_file, fodt_root, fodt_namespaces, manifest):
             document = documents_processed.get(xml_filename)
 
             document.append(deepcopy(child))
+            
+            # Specified document ends only with one of the following tags
+            if tag in ['meta', 'settings', 'master-styles', 'body']:
+                # Convert to string while checking for images
+                document_string = decode_images_to_zip(
+                    zip_file, document, fodt_namespaces, manifest)
 
-            # Decode images, if any. Else function will only give the same
-            # document string as output
-            document_string = decode_images_to_zip(
-                zip_file, document, fodt_namespaces, manifest)
+                zip_file.writestr("%s.xml" % (xml_filename), document_string)
 
-            zip_file.writestr("%s.xml" % (xml_filename), document_string)
-
-            # Write to manifest object
-            manifest.add_manifest_entry("%s.xml" % (xml_filename))
+                # Write to manifest object
+                manifest.add_manifest_entry("%s.xml" % (xml_filename))
 
 
 class Manifest(object):
@@ -149,7 +159,7 @@ class Manifest(object):
         manifest_entry.attrib[
             "{%s}media-type" % (self.manifest_namespace["manifest"])] = mimetypes.guess_type(file_name)[0]
 
-    def write_to_zip(self, zip_file, manifest):  # TODO Remove duplicates
+    def write_to_zip(self, zip_file, manifest): 
         manifest_string = etree.tostring(
             manifest.document, encoding='UTF-8', xml_declaration=True, pretty_print=True)
         zip_file.writestr("META-INF/manifest.xml", manifest_string)
