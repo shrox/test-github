@@ -28,11 +28,9 @@ def parse_fodt(filename):
 def decode_images_to_zip(zip_file, document, fodt_namespaces, manifest):
     ''' Will decode images and write them to zip '''
 
-    document_root = document
-
     image_number = 0
 
-    all_binary_data = document_root.xpath(
+    all_binary_data = document.xpath(
         "//draw:image/office:binary-data/text()",
         namespaces=fodt_namespaces)
 
@@ -48,7 +46,7 @@ def decode_images_to_zip(zip_file, document, fodt_namespaces, manifest):
 
         zip_file.writestr(image_name, image)
 
-        node = document_root.xpath(
+        node = document.xpath(
             "//draw:image", namespaces=fodt_namespaces)[image_number]
         node.attrib["{%s}href" % (fodt_namespaces['xlink'])] = image_name
         node.attrib["{%s}simple" % (fodt_namespaces['xlink'])] = "simple"
@@ -126,16 +124,15 @@ class Manifest(object):
 
     ''' Class to handle manifest.xml in META-INF folder'''
 
-    def __init__(self, fodt_namespaces):
+    def __init__(self, fodt_root, fodt_namespaces):
         self.manifest_namespace = {
             "manifest": "urn:oasis:names:tc:opendocument:xmlns:manifest:1.0"}
 
         self.document = etree.Element(
             ("{%s}manifest" % (self.manifest_namespace["manifest"])),
             nsmap=self.manifest_namespace)
-        # print 'TEST TEST TEST', self.document.xpath("//draw:image/office:binary-data/text()", namespaces=fodt_namespaces) # Wrong because self.document is empty!!
         self.document.attrib["{%s}version" %
-                             (self.manifest_namespace["manifest"])] = "1.2"
+                             (self.manifest_namespace["manifest"])] = fodt_root.xpath("//@office:version", namespaces=fodt_namespaces)[0]
 
         # Will be in every manifest.xml
         manifest_entry = etree.SubElement(self.document,
@@ -175,7 +172,7 @@ def convert(filename):
     # Can add option to have something else as odt_filename
     odt_filename = filename
 
-    manifest = Manifest(fodt_namespaces)
+    manifest = Manifest(fodt_root, fodt_namespaces)
     split_file_to_zip(
         zip_file, fodt_root, fodt_namespaces, manifest)
     manifest.write_to_zip(zip_file, manifest)
