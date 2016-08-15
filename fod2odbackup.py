@@ -32,40 +32,75 @@ def decode_images_to_zip(zip_file, document, fod_namespaces, manifest):
             param fod_namespaces: all namespaces in the fod document
             param manifest: manifest instance to write to manifest.xml
     '''
-
     image_number = 0
 
-    all_binary_data = document.xpath(
-        "//draw:image/office:binary-data/text()",
-        namespaces={'draw': 'urn:oasis:names:tc:opendocument:xmlns:drawing:1.0', 'office': 'urn:oasis:names:tc:opendocument:xmlns:office:1.0'})
+    for all_nodes in document.xpath("//draw:image", namespaces=fod_namespaces):
+        all_binary_data = all_nodes.xpath("./office:binary-data/text()", namespaces=fod_namespaces) # consider correct for the time being 
+        with magic.Magic(flags=magic.MAGIC_MIME_TYPE) as m:
+            for binary_data in all_binary_data:
+                # Decode image using base64 module
+                image = base64.b64decode(binary_data)
+                
+                # Identify mime to identify extension 
+                mime = m.id_buffer(image)
 
-    with magic.Magic(flags=magic.MAGIC_MIME_TYPE) as m:
-        for binary_data in all_binary_data:
-            # Decode image using base64 module
-            image = base64.b64decode(binary_data)
+                image_name = "Pictures/image%s%s" % (image_number, mimetypes.guess_extension(mime))
+
+                zip_file.writestr(image_name, image)
+
+                node = all_nodes.xpath(
+                    ".", namespaces=fod_namespaces)[0]
+                node.attrib["{%s}href" % (fod_namespaces['xlink'])] = image_name
+                node.attrib["{%s}simple" % (fod_namespaces['xlink'])] = "simple"
+                node.attrib["{%s}show" % (fod_namespaces['xlink'])] = "embed"
+                node.attrib["{%s}actuate" % (fod_namespaces['xlink'])] = "onLoad"
+
+                image_number += 1
+
+                # Delete binary data
+                elem = binary_data.getparent()
+                elem.getparent().remove(elem)
+
+                # Write to manifest object
+                manifest.add_manifest_entry(image_name)
+
+
+    # image_number = 0
+
+    # all_binary_data = document.xpath(
+    #     "//draw:image/office:binary-data/text()",
+    #     namespaces={'draw': 'urn:oasis:names:tc:opendocument:xmlns:drawing:1.0', 'office': 'urn:oasis:names:tc:opendocument:xmlns:office:1.0'}) # Not sure about this bit as yet
+
+    # print all_binary_data
+
+    # with magic.Magic(flags=magic.MAGIC_MIME_TYPE) as m:
+    #     for binary_data in all_binary_data:
+    #         print "TEST"
+    #         # Decode image using base64 module
+    #         image = base64.b64decode(binary_data)
             
-            # Identify mime to identify extension 
-            mime = m.id_buffer(image)
+    #         # Identify mime to identify extension 
+    #         mime = m.id_buffer(image)
 
-            image_name = "Pictures/image%s%s" % (image_number, mimetypes.guess_extension(mime))
+    #         image_name = "Pictures/image%s%s" % (image_number, mimetypes.guess_extension(mime))
 
-            zip_file.writestr(image_name, image)
+    #         zip_file.writestr(image_name, image)
 
-            node = document.xpath(
-                "//draw:image", namespaces=fod_namespaces)[image_number]
-            node.attrib["{%s}href" % (fod_namespaces['xlink'])] = image_name
-            node.attrib["{%s}simple" % (fod_namespaces['xlink'])] = "simple"
-            node.attrib["{%s}show" % (fod_namespaces['xlink'])] = "embed"
-            node.attrib["{%s}actuate" % (fod_namespaces['xlink'])] = "onLoad"
+    #         node = document.xpath(
+    #             "//draw:image", namespaces=fod_namespaces)[image_number]
+    #         node.attrib["{%s}href" % (fod_namespaces['xlink'])] = image_name
+    #         node.attrib["{%s}simple" % (fod_namespaces['xlink'])] = "simple"
+    #         node.attrib["{%s}show" % (fod_namespaces['xlink'])] = "embed"
+    #         node.attrib["{%s}actuate" % (fod_namespaces['xlink'])] = "onLoad"
 
-            image_number += 1
+    #         image_number += 1
 
-            # Delete binary data
-            elem = binary_data.getparent()
-            elem.getparent().remove(elem)
+    #         # Delete binary data
+    #         elem = binary_data.getparent()
+    #         elem.getparent().remove(elem)
 
-            # Write to manifest object
-            manifest.add_manifest_entry(image_name)
+    #         # Write to manifest object
+    #         manifest.add_manifest_entry(image_name)
 
 
 def split_file_to_zip(zip_file, fod_root, fod_namespaces, manifest):
@@ -140,17 +175,8 @@ class Manifest(object):
         self.document = etree.Element(
             ("{%s}manifest" % (self.manifest_namespace["manifest"])),
             nsmap=self.manifest_namespace)
-
         self.document.attrib["{%s}version" %
                              (self.manifest_namespace["manifest"])] = fod_root.xpath("//@office:version", namespaces=fod_namespaces)[0]
-
-        # Will be in every manifest.xml
-        # manifest_entry = etree.SubElement(self.document,
-        #                                   "{%s}file-entry" % (self.manifest_namespace["manifest"]))
-        # manifest_entry.attrib["{%s}full-path" %
-        #                       (self.manifest_namespace["manifest"])] = "/"
-        # manifest_entry.attrib["{%s}media-type" % 
-        #                         (self.manifest_namespace["manifest"])] = "application/vnd.oasis.opendocument.text"
 
         self.add_manifest_entry('/')
 
@@ -162,7 +188,8 @@ class Manifest(object):
                               (self.manifest_namespace["manifest"])] = file_path
 
         file_name = os.path.basename(file_path)
-        # If condition for when filename is '/'
+        
+        # If condition for when file_path is '/'
         if file_name == '':
             manifest_entry.attrib[
             "{%s}media-type" % (self.manifest_namespace["manifest"])] = 'application/vnd.oasis.opendocument.text'
