@@ -17,9 +17,8 @@ def mimetype(zip_file):
                       "application/vnd.oasis.opendocument.text")
 
 
-def parse_fod(filename):
-    filename = open(filename, "r")
-    fod_tree = etree.parse(filename)
+def parse_fod(file_obj):
+    fod_tree = etree.parse(file_obj)
     fod_root = fod_tree.getroot()
     fod_namespaces = fod_root.nsmap
     return (fod_root, fod_namespaces)
@@ -36,37 +35,40 @@ def decode_images_to_zip(zip_file, document, fod_namespaces, manifest):
     image_number = 0
 
     for all_nodes in document.xpath("//draw:image", namespaces=fod_namespaces):
-        # consider correct for the time being
         all_binary_data = all_nodes.xpath(
             "./office:binary-data/text()", namespaces=fod_namespaces)
-        with magic.Magic(flags=magic.MAGIC_MIME_TYPE) as m:
+        with magic.Magic(flags=magic.MAGIC_MIME_TYPE) as magic_instance:
             for binary_data in all_binary_data:
                 # Decode image using base64 module
                 image = base64.b64decode(binary_data)
 
                 # Identify mime to identify extension
-                mime = m.id_buffer(image)
+                mime = magic_instance.id_buffer(image)
 
                 image_name = "Pictures/image%s%s" % (
                     image_number, mimetypes.guess_extension(mime))
 
                 zip_file.writestr(image_name, image)
 
-                node = all_nodes.xpath(
-                    ".", namespaces=fod_namespaces)[0]
-                node.attrib["{%s}href" %
+                all_nodes.attrib["{%s}href" %
                             (fod_namespaces['xlink'])] = image_name
-                node.attrib["{%s}simple" %
+                all_nodes.attrib["{%s}simple" %
                             (fod_namespaces['xlink'])] = "simple"
-                node.attrib["{%s}show" % (fod_namespaces['xlink'])] = "embed"
-                node.attrib["{%s}actuate" %
+                all_nodes.attrib["{%s}show" % (fod_namespaces['xlink'])] = "embed"
+                all_nodes.attrib["{%s}actuate" %
                             (fod_namespaces['xlink'])] = "onLoad"
+
 
                 image_number += 1
 
                 # Delete binary data
                 elem = binary_data.getparent()
+                # print "elem", elem
+                # print "node", node
+                # print "getparent", elem.getparent()
                 elem.getparent().remove(elem)
+
+                # node.remove(node.getchildren()) # TODO FIX
 
                 # Write to manifest object
                 manifest.add_manifest_entry(image_name)
@@ -91,7 +93,7 @@ def split_file_to_zip(zip_file, fod_root, fod_namespaces, manifest):
         'styles': ['styles'],
         'automatic-styles': ['content', 'styles'],
         'master-styles': ['styles'],
-        'body': ['content']
+        'body': ['content'],
     }
 
     documents_processed = {
@@ -135,8 +137,9 @@ def split_file_to_zip(zip_file, fod_root, fod_namespaces, manifest):
 
 
 class Manifest(object):
-
-    ''' Class to handle manifest.xml in META-INF folder'''
+    ''' 
+        Class to handle manifest.xml in META-INF folder
+    '''
 
     def __init__(self, fod_root, fod_namespaces):
         self.manifest_namespace = {
@@ -154,23 +157,23 @@ class Manifest(object):
         self.add_manifest_entry('/')
 
     def add_manifest_entry(self, file_path):
-        manifest_entry = etree.SubElement(
+        entry = etree.SubElement(
             self.document, "{%s}file-entry" %
             (self.manifest_namespace["manifest"]))
 
-        manifest_entry.attrib[
+        entry.attrib[
             "{%s}full-path" %
             (self.manifest_namespace["manifest"])] = file_path
 
         file_name = os.path.basename(file_path)
 
-        # If condition for when file_path is '/'
+        # Special case for empty file_name because type cannot be guessed
         if file_name == '':
-            manifest_entry.attrib[
+            entry.attrib[
                 "{%s}media-type" %
                 (self.manifest_namespace["manifest"])] = 'application/vnd.oasis.opendocument.text'
         else:
-            manifest_entry.attrib[
+            entry.attrib[
                 "{%s}media-type" %
                 (self.manifest_namespace["manifest"])] = mimetypes.guess_type(file_name)[0]
 
@@ -178,32 +181,31 @@ class Manifest(object):
         manifest_string = etree.tostring(
             manifest.document,
             encoding='UTF-8',
-            xml_declaration=True,
-            pretty_print=True)
+            xml_declaration=True,)
         zip_file.writestr("META-INF/manifest.xml", manifest_string)
 
 
-def convert(filename):
-    fod_root, fod_namespaces = parse_fod(filename)
+def convert(file_obj):
+    fod_root, fod_namespaces = parse_fod(file_obj)
     output_odt = StringIO()
     zip_file = ZipFile(output_odt, "w")
 
     mimetype(zip_file)
 
-    # Can add option to have something else as odt_filename
-    odt_filename = filename
-
     manifest = Manifest(fod_root, fod_namespaces)
     split_file_to_zip(
         zip_file, fod_root, fod_namespaces, manifest)
     manifest.write_to_zip(zip_file, manifest)
-
     zip_file.close()
     output_odt.seek(0)
 
-    with open("%s.odt" % (odt_filename.split(".")[0]), "wb") as odt:
-        shutil.copyfileobj(output_odt, odt)
+    return output_odt
 
 
 if __name__ == "__main__":
-    convert(sys.argv[1])
+    filename = sys.argv[1]
+    file_obj = open(filename, "r")
+    output_odt = convert(file_obj)
+
+    with open("%s.odt" % (sys.argv[1].split(os.extsep)[0]), "wb") as odt:
+        shutil.copyfileobj(output_odt, odt)
