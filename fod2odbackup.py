@@ -33,10 +33,15 @@ def decode_images_to_zip(zip_file, document, fod_namespaces, manifest):
             param manifest: manifest instance to write to manifest.xml
     '''
     image_number = 0
-
+    # TODO reconsider names
     for all_nodes in document.xpath("//draw:image", namespaces=fod_namespaces):
-        all_binary_data = all_nodes.xpath(
-            "./office:binary-data/text()", namespaces=fod_namespaces)
+
+        # print all_nodes.getchildren()[0].text
+        # TODO fix all_binary_data which currently does not give a list
+        all_binary_data = []
+        all_binary_data.append(all_nodes.getchildren()[0].text)
+        # all_binary_data = all_nodes.xpath(
+        #     "./office:binary-data/text()", namespaces=fod_namespaces)
         with magic.Magic(flags=magic.MAGIC_MIME_TYPE) as magic_instance:
             for binary_data in all_binary_data:
                 # Decode image using base64 module
@@ -58,17 +63,16 @@ def decode_images_to_zip(zip_file, document, fod_namespaces, manifest):
                 all_nodes.attrib["{%s}actuate" %
                             (fod_namespaces['xlink'])] = "onLoad"
 
-
                 image_number += 1
 
                 # Delete binary data
-                elem = binary_data.getparent()
+                # elem = binary_data.getparent()
                 # print "elem", elem
-                # print "node", node
+                # print "node", all_nodes
                 # print "getparent", elem.getparent()
-                elem.getparent().remove(elem)
+                # elem.getparent().remove(elem)
 
-                # node.remove(node.getchildren()) # TODO FIX
+                all_nodes.remove(all_nodes.getchildren()[0]) 
 
                 # Write to manifest object
                 manifest.add_manifest_entry(image_name)
