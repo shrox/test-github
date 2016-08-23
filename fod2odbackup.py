@@ -11,13 +11,6 @@ from zipfile import ZipFile
 from StringIO import StringIO
 
 
-# def mimetype(filename):
-#     # Condition to rename fod to equivalent od to obtain mimetype
-#     if os.path.splitext(filename)[1][1:4] == 'fod': 
-#         filename = "%s.%s" % (os.path.splitext(filename)[0], os.path.splitext(filename)[1][2:])
-#     return mimetypes.guess_type(filename)[0]
-                          
-
 def parse_fod(file_obj):
     fod_tree = etree.parse(file_obj)
     fod_root = fod_tree.getroot()
@@ -33,37 +26,37 @@ def decode_images_to_zip(zip_file, document, fod_namespaces, manifest):
             param fod_namespaces: all namespaces in the fod document
             param manifest: manifest instance to write to manifest.xml
     '''
-    image_number = 0
-    # TODO reconsider names
-    for all_nodes in document.xpath("//draw:image", namespaces=fod_namespaces):
-        all_binary_data = []
-        all_binary_data.append(all_nodes.getchildren()[0].text)
+    for image_number, node in enumerate(document.xpath(
+            "//draw:image", namespaces=fod_namespaces)):
+        binary_data = []
+        binary_data.append(node.getchildren()[0].text)
 
         with magic.Magic(flags=magic.MAGIC_MIME_TYPE) as magic_instance:
-            for binary_data in all_binary_data:
-                image = base64.b64decode(binary_data) # Decode image using base64 module
-                
-                mime = magic_instance.id_buffer(image) # Identify mime to identify extension
+            for data in binary_data:
+                # Decode image using base64 module
+                image = base64.b64decode(data)
+
+                # Identify mime to identify extension
+                mime = magic_instance.id_buffer(image)
 
                 image_name = "Pictures/image%s%s" % (
                     image_number, mimetypes.guess_extension(mime))
 
                 zip_file.writestr(image_name, image)
 
-                all_nodes.attrib["{%s}href" %
+                node.attrib["{%s}href" %
                             (fod_namespaces['xlink'])] = image_name
-                all_nodes.attrib["{%s}simple" %
+                node.attrib["{%s}simple" %
                             (fod_namespaces['xlink'])] = "simple"
-                all_nodes.attrib["{%s}show" % 
+                node.attrib["{%s}show" %
                             (fod_namespaces['xlink'])] = "embed"
-                all_nodes.attrib["{%s}actuate" %
+                node.attrib["{%s}actuate" %
                             (fod_namespaces['xlink'])] = "onLoad"
 
-                image_number += 1
-                
-                all_nodes.remove(all_nodes.getchildren()[0]) # Delete binary data
-                
-                manifest.add_manifest_entry(image_name) # Write to manifest object
+                node.remove(node.getchildren()[0])  # Delete binary data
+
+                # Write to manifest object
+                manifest.add_manifest_entry(image_name)
 
 
 def split_file_to_zip(zip_file, fod_root, fod_namespaces, manifest):
@@ -74,7 +67,6 @@ def split_file_to_zip(zip_file, fod_root, fod_namespaces, manifest):
 
         FOD will be split to smaller files in accordance to their
         tags and written to zip
-
     '''
 
     tag2file = {
@@ -115,20 +107,20 @@ def split_file_to_zip(zip_file, fod_root, fod_namespaces, manifest):
 
         # Specified document ends only with one of the following tags
         if tag in ['meta', 'settings', 'master-styles', 'body']:
-                decode_images_to_zip(
-                    zip_file, document, fod_namespaces, manifest)
+            decode_images_to_zip(
+                zip_file, document, fod_namespaces, manifest)
 
-                document_string = etree.tostring(
-                    document, encoding='UTF-8', xml_declaration=True)
+            document_string = etree.tostring(
+                document, encoding='UTF-8', xml_declaration=True)
 
-                zip_file.writestr("%s.xml" % (xml_filename), document_string)
+            zip_file.writestr("%s.xml" % (xml_filename), document_string)
 
-                # Write to manifest object
-                manifest.add_manifest_entry("%s.xml" % (xml_filename))
+            # Write to manifest object
+            manifest.add_manifest_entry("%s.xml" % (xml_filename))
 
 
 class Manifest(object):
-    ''' 
+    '''
         Class to handle manifest.xml in META-INF folder
     '''
 
@@ -170,13 +162,6 @@ class Manifest(object):
                 "{%s}media-type" %
                 (self.manifest_namespace["manifest"])] = mimetypes.guess_type(file_name)[0]
 
-    def write_to_zip(self, zip_file, manifest):
-        manifest_string = etree.tostring(
-            manifest.document,
-            encoding='UTF-8',
-            xml_declaration=True,)
-        zip_file.writestr("META-INF/manifest.xml", manifest_string)
-
 
 def convert(file_obj, od_filename):
     fod_root, fod_namespaces = parse_fod(file_obj)
@@ -189,7 +174,13 @@ def convert(file_obj, od_filename):
     manifest = Manifest(fod_root, fod_namespaces, od_mimetype)
     split_file_to_zip(
         zip_file, fod_root, fod_namespaces, manifest)
-    manifest.write_to_zip(zip_file, manifest)
+
+    manifest_string = etree.tostring(
+        manifest.document,
+        encoding='UTF-8',
+        xml_declaration=True,)
+    zip_file.writestr("META-INF/manifest.xml", manifest_string)
+
     zip_file.close()
     output_od.seek(0)
 
