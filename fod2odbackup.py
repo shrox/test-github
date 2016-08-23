@@ -11,27 +11,12 @@ from zipfile import ZipFile
 from StringIO import StringIO
 
 
-def od_format(filename):
-    fod2od = {
-    'fodt': 'odt',
-    'fods': 'ods',
-    'fodp': 'odp',
-    }
-
-    return fod2od[filename.split(os.extsep)[1]]
-
-
-def mimetype(od_format):
-    if od_format == 'odt':
-        return "application/vnd.oasis.opendocument.text"
+# def mimetype(filename):
+#     # Condition to rename fod to equivalent od to obtain mimetype
+#     if os.path.splitext(filename)[1][1:4] == 'fod': 
+#         filename = "%s.%s" % (os.path.splitext(filename)[0], os.path.splitext(filename)[1][2:])
+#     return mimetypes.guess_type(filename)[0]
                           
-    elif od_format == 'ods':
-        return "application/vnd.oasis.opendocument.spreadsheet"
-                          
-    elif od_format == 'odp':
-       return "application/vnd.oasis.opendocument.presentation"
-                          
-
 
 def parse_fod(file_obj):
     fod_tree = etree.parse(file_obj)
@@ -147,7 +132,9 @@ class Manifest(object):
         Class to handle manifest.xml in META-INF folder
     '''
 
-    def __init__(self, fod_root, fod_namespaces):
+    def __init__(self, fod_root, fod_namespaces, od_mimetype):
+        self.od_mimetype = od_mimetype
+
         self.manifest_namespace = {
             "manifest": "urn:oasis:names:tc:opendocument:xmlns:manifest:1.0"}
 
@@ -177,7 +164,7 @@ class Manifest(object):
         if file_name == '':
             entry.attrib[
                 "{%s}media-type" %
-                (self.manifest_namespace["manifest"])] = 'application/vnd.oasis.opendocument.text' # TODO should depend on filetype
+                (self.manifest_namespace["manifest"])] = self.od_mimetype
         else:
             entry.attrib[
                 "{%s}media-type" %
@@ -191,27 +178,29 @@ class Manifest(object):
         zip_file.writestr("META-INF/manifest.xml", manifest_string)
 
 
-def convert(file_obj, od_format):
+def convert(file_obj, od_filename):
     fod_root, fod_namespaces = parse_fod(file_obj)
-    output_odt = StringIO()
-    zip_file = ZipFile(output_odt, "w")
+    output_od = StringIO()
+    zip_file = ZipFile(output_od, "w")
 
-    zip_file.writestr("mimetype", mimetype(od_format)) # For mimetype
+    od_mimetype = mimetypes.guess_type(od_filename)[0]
+    zip_file.writestr("mimetype", od_mimetype)
 
-    manifest = Manifest(fod_root, fod_namespaces)
+    manifest = Manifest(fod_root, fod_namespaces, od_mimetype)
     split_file_to_zip(
         zip_file, fod_root, fod_namespaces, manifest)
     manifest.write_to_zip(zip_file, manifest)
     zip_file.close()
-    output_odt.seek(0)
+    output_od.seek(0)
 
-    return output_odt
+    return output_od
 
 
 if __name__ == "__main__":
-    filename = sys.argv[1]
-    file_obj = open(filename, "r")
-    output_od = convert(file_obj, od_format(filename))
+    fod_filename = sys.argv[1]
+    od_filename = sys.argv[2]
+    file_obj = open(fod_filename, "r")
+    output_od = convert(file_obj, od_filename)
 
-    with open("%s.%s" % (sys.argv[1].split(os.extsep)[0], od_format(filename)), "wb") as od:
+    with open("%s" % (od_filename), "wb") as od:
         shutil.copyfileobj(output_od, od)
